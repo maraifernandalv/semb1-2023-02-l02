@@ -106,56 +106,48 @@
  * Public Functions
  ****************************************************************************/
 
-int main(int argc, char *argv[])
+int main(void)
 {
-  uint32_t i;
-  uint32_t reg;
+    uint32_t reg;
 
-  /* Ponteiros para registradores */
+    /* Ponteiros para registradores */
+    volatile uint32_t *pRCC_AHB1ENR = (uint32_t *)STM32_RCC_AHB1ENR;
+    volatile uint32_t *pGPIOA_MODER = (uint32_t *)STM32_GPIOA_MODER;
+    volatile uint32_t *pGPIOA_IDR = (uint32_t *)STM32_GPIOA_IDR;
+    volatile uint32_t *pGPIOC_MODER = (uint32_t *)STM32_GPIOC_MODER;
+    volatile uint32_t *pGPIOC_ODR = (uint32_t *)STM32_GPIOC_ODR;
+    volatile uint32_t *pGPIOC_BSRR = (uint32_t *)STM32_GPIOC_BSRR;
 
-  uint32_t *pRCC_AHB1ENR  = (uint32_t *)STM32_RCC_AHB1ENR;
-  uint32_t *pGPIOC_MODER  = (uint32_t *)STM32_GPIOC_MODER;
-  uint32_t *pGPIOC_OTYPER = (uint32_t *)STM32_GPIOC_OTYPER;
-  uint32_t *pGPIOC_PUPDR  = (uint32_t *)STM32_GPIOC_PUPDR;
-  uint32_t *pGPIOC_BSRR   = (uint32_t *)STM32_GPIOC_BSRR;
+    /* Habilita clock para GPIOC e GPIOA */
+    reg = *pRCC_AHB1ENR;
+    reg |= RCC_AHB1ENR_GPIOCEN | RCC_AHB1ENR_GPIOAEN;
+    *pRCC_AHB1ENR = reg;
 
-  /* Habilita clock GPIOC */
+    /* Configura PC13 como saída */
+    reg = *pGPIOC_MODER;
+    reg &= ~(3 << (13 * 2));  // Limpa os bits de modo para PC13
+    reg |= (1 << (13 * 2));   // Configura PC13 como saída
+    *pGPIOC_MODER = reg;
 
-  reg  = *pRCC_AHB1ENR;
-  reg |= RCC_AHB1ENR_GPIOCEN;
-  *pRCC_AHB1ENR = reg;
+    /* Configura PA0 como entrada */
+    reg = *pGPIOA_MODER;
+    reg &= ~(3 << (0 * 2));  // Limpa os bits de modo para PA0
+    *pGPIOA_MODER = reg;
 
-  /* Configura PC13 como saida pull-up off e pull-down off */
+    uint32_t lastButtonState = *pGPIOA_IDR & (1 << 0);  // Guarda o estado inicial do botão
+    uint32_t currentButtonState;
 
-  reg = *pGPIOC_MODER;
-  reg &= ~GPIO_MODER_MASK(13);
-  reg |= (GPIO_MODER_OUTPUT << GPIO_MODER_SHIFT(13));
-  *pGPIOC_MODER = reg;  
-
-  reg = *pGPIOC_OTYPER;
-  reg &= ~GPIO_OT_MASK(13);
-  reg |= (GPIO_OTYPER_PP << GPIO_OT_SHIFT(13));
-  *pGPIOC_OTYPER = reg;
-
-  reg = *pGPIOC_PUPDR;
-  reg &= ~GPIO_PUPDR_MASK(13);
-  reg |= (GPIO_PUPDR_NONE << GPIO_PUPDR_SHIFT(13));
-  *pGPIOC_PUPDR = reg;
-
-  while(1)
+    while (1)
     {
-      /* Liga LED */
-
-      *pGPIOC_BSRR = GPIO_BSRR_RESET(13);
-      for (i = 0; i < LED_DELAY; i++);
-
-      /* Desliga LED */
-
-      *pGPIOC_BSRR = GPIO_BSRR_SET(13);
-      for (i = 0; i < LED_DELAY; i++);
+        currentButtonState = *pGPIOA_IDR & (1 << 0);  // Lê o estado atual do botão
+        
+        if (currentButtonState != lastButtonState) {  // Verifica se o estado do botão mudou
+            if (currentButtonState == 0) {  // Se o botão está pressionado
+                *pGPIOC_ODR ^= (1 << 13);  // Troca o estado do LED
+            }
+            lastButtonState = currentButtonState;  // Atualiza o estado anterior do botão
+        }
     }
 
-  /* Nunca deveria chegar aqui */
-
-  return EXIT_FAILURE;
+    return 0;  // Nunca deveria chegar aqui
 }
